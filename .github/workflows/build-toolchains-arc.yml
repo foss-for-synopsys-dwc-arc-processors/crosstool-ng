@@ -1,0 +1,143 @@
+name: Build ARC toolchains
+
+on:
+  workflow_call:
+    inputs:
+      samples:
+        description: Stringified JSON list of samples
+        required: true
+        type: string
+      canadian-cross:
+        description: Build Canadian Cross toolchain
+        default: false
+        required: false
+        type: boolean
+
+jobs:
+  build:
+    runs-on: ${{ matrix.host }}
+    strategy:
+      fail-fast: false
+      matrix:
+        sample: ${{ fromJSON(inputs.samples) }}
+        host: [ "ubuntu-latest" ]
+    steps:
+      - name: download ct-ng
+        uses: actions/download-artifact@v2
+        with:
+          name: crosstool.${{ matrix.host }}
+      - name: extract ct-ng
+        run: |
+          tar -xf ct-ng.tar
+      - name: download tarballs
+        uses: actions/download-artifact@v2
+        with:
+          name: src.tar
+      - name: extract tarballs
+        run: |
+          tar -xvf src.tar
+      - name: prereq Linux
+        if: ${{ runner.os == 'Linux' }}
+        run: |
+          sudo apt-get install -y gperf help2man libtool-bin
+          echo "${{ github.workspace }}/.local/bin" >> $GITHUB_PATH
+
+      - name: select download name for cross-build tarball
+        if: inputs.canadian-cross
+        run: |
+          if [[ ${{ matrix.sample }} == *"win"* ]]; then
+            echo "DOWNLOAD_PREFIX=x86_64-w64-mingw32" >> $GITHUB_ENV
+          elif [[ ${{ matrix.sample }} == *"native"* ]]; then
+            echo "DOWNLOAD_PREFIX=arc-archs-linux-gnu" >> $GITHUB_ENV
+          fi
+      - name: download ${{ env.DOWNLOAD_PREFIX }}.${{ matrix.host }} tarball
+        if: inputs.canadian-cross
+        uses: actions/download-artifact@v2
+        with:
+          name: ${{ env.DOWNLOAD_PREFIX }}.${{ matrix.host }}.tar.gz
+      - name: install ${{ env.DOWNLOAD_PREFIX }}.${{ matrix.host }} toolchain
+        if: inputs.canadian-cross
+        run: |
+          mkdir -p ${{ github.workspace }}/${{ env.DOWNLOAD_PREFIX }}
+          tar -C ${{ github.workspace }}/${{ env.DOWNLOAD_PREFIX }} \
+              -xzf ${{ env.DOWNLOAD_PREFIX }}.${{ matrix.host }}.tar.gz
+          echo "${{ github.workspace }}/${{ env.DOWNLOAD_PREFIX }}/bin" >> $GITHUB_PATH
+
+      - name: Get osxcross sources
+        if: contains(matrix.sample, 'macos')
+        uses: actions/checkout@v2
+        with:
+          repository: tpoechtrager/osxcross
+          path: './osxcross'
+
+      - name: Build OSXcross toolchain
+        if: contains(matrix.sample, 'macos')
+        run: |
+          sudo apt-get install clang cmake libssl-dev lzma-dev libxml2-dev zlib1g-dev libmpc-dev libmpfr-dev libgmp-dev
+          pushd osxcross
+            UNATTENDED=1 ./build.sh
+            GCC_VERSION=11.2.0 ./build_gcc.sh
+            BINUTILS_VERSION=2.37 GDB_VERSION=10.2 ./build_binutils.sh
+          popd
+          echo "${{ github.workspace }}/osxcross/target/bin" >> $GITHUB_PATH
+          echo "${{ github.workspace }}/osxcross/target/binutils/bin" >> $GITHUB_PATH
+
+      - name: build ${{ matrix.sample }} for ${{ matrix.host }}
+        run: |
+          mkdir -p src
+          ct-ng ${{ matrix.sample }}
+          sed -i -e '/CT_LOG_PROGRESS_BAR/s/y$/n/' .config
+          sed -i -e '/CT_LOCAL_TARBALLS_DIR/s/HOME/CT_TOP_DIR/' .config
+          sed -i -e '/CT_PREFIX_DIR/s/HOME/CT_TOP_DIR/' .config
+          ct-ng build
+
+      - name: set tarball prefixes to environment variables
+        run: |
+          if [[ ${{ matrix.sample }} == *"arceb"* ]]; then
+            ARCH="arceb"
+          elif [[ ${{ matrix.sample }} == *"arc"* ]]; then
+            ARCH="arc"
+          fi
+          if [[ ${{ matrix.sample }} == *"uclibc"* ]]; then
+            TOOLCHAIN_FOLDER="${ARCH}-snps-linux-uclibc"
+          elif [[ ${{ matrix.sample }} == *"gnu"* ]]; then
+            TOOLCHAIN_FOLDER="${ARCH}-snps-linux-gnu"
+          elif [[ ${{ matrix.sample }} == *"elf"* ]]; then
+            TOOLCHAIN_FOLDER="${ARCH}-snps-elf"
+          fi
+          if [[ ${{ matrix.sample }} == 'snps-x86_64-w64-mingw32' ]]; then
+            echo "TOOLCHAIN_FOLDER=x86_64-w64-mingw32" >> $GITHUB_ENV
+          else
+            echo "TOOLCHAIN_FOLDER=${TOOLCHAIN_FOLDER}" >> $GITHUB_ENV
+          fi
+          sample=${{ matrix.sample }}
+          echo "TARBALL_PREFIX=${sample#*-}" >> $GITHUB_ENV
+
+      - name: create ${{ env.TARBALL_PREFIX }}.${{ matrix.host }} tarball
+        run: |
+          if [[ ${{ matrix.sample }} == *"win"* ]]; then
+            TARGET_DIR="HOST-x86_64-w64-mingw32/${TOOLCHAIN_FOLDER}"
+          elif [[ ${{ matrix.sample }} == *"native"* ]]; then
+            TARGET_DIR="HOST-arc-snps-linux-gnu/${TOOLCHAIN_FOLDER}"
+          else
+            TARGET_DIR="${TOOLCHAIN_FOLDER}"
+          fi
+          tar -C ${{ github.workspace }}/x-tools/${TARGET_DIR} \
+              -czf ${{ env.TARBALL_PREFIX }}.${{ matrix.host }}.tar.gz .
+
+      - name: upload ${{ env.TARBALL_PREFIX }}.${{ matrix.host }} tarball
+        uses: actions/upload-artifact@v2
+        with:
+          name: ${{ env.TARBALL_PREFIX }}.${{ matrix.host }}.tar.gz
+          path: |
+            ${{ env.TARBALL_PREFIX }}.${{ matrix.host }}.tar.gz
+
+      - name: upload log
+        uses: actions/upload-artifact@v2
+        with:
+          name: ${{ matrix.sample }}.${{ matrix.host }}.log
+          path: |
+            build.log
+            .config
+          retention-days: 7
+        if: ${{ always() }}
