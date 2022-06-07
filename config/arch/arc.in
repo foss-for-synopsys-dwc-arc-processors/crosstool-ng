@@ -2,6 +2,7 @@
 
 ## no-package
 ## select ARCH_SUPPORTS_32
+## select ARCH_SUPPORTS_64
 ## select ARCH_DEFAULT_32
 ## select ARCH_SUPPORTS_BOTH_MMU
 ## select ARCH_DEFAULT_HAS_MMU
