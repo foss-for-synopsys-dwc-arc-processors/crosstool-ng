@@ -1,0 +1,253 @@
+name: ARC_Crosstool_CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      linux:
+        description:  Linux branch name
+        required:     false
+        default:      arc64
+        type:         string
+      gcc:
+        description:  GCC branch name
+        required:     false
+        default:      arc-2022.03
+        type:         string
+      binutils:
+        description:  Binutils branch name
+        required:     false
+        default:      arc-2022.03
+        type:         string
+      newlib:
+        description:  Newlib branch name
+        required:     false
+        default:      arc-2022.03
+        type:         string
+      glibc:
+        description:  Glibc branch name
+        required:     false
+        default:      arc64-2.34
+        type:         string
+      uclibc:
+        description:  uClibc branch name
+        required:     false
+        default:      uclibc-arc32-wip
+        type:         string
+      release_tag:
+        description:  Set optional release tag
+        required:     false
+        type:         string
+
+jobs:
+  crosstool:
+    runs-on: ${{ matrix.host }}
+    strategy:
+      matrix:
+        host: [ "ubuntu-18.04" ]
+    outputs:
+      build_suffix: ${{ steps.build_suffix.outputs.build_suffix }}
+    steps:
+
+      - name: "Clone Repo"
+        uses: actions/checkout@v2
+
+      - name: Setup build suffix
+        id: build_suffix
+        run: |
+          if [[ "${{ github.event.inputs.release_tag }}" == "" ]]; then
+            echo "::set-output name=build_suffix::build-${{ github.run_number }}"
+          else
+            echo "::set-output name=build_suffix::${{ github.event.inputs.release_tag }}"
+          fi
+
+      - name: Get ARC Toolchain Variables
+        uses: ./.github/actions/setvars
+        with:
+          varFilePath: ./.github/variables/arc_toolchains.env
+
+      - name: Determine git parameters
+        run: |
+          echo "Setting Git variables"
+
+          LINUX_BRANCH=${{ github.event.inputs.linux }}
+          GCC_BRANCH=${{ github.event.inputs.gcc }}
+          BINUTILS_BRANCH=${{ github.event.inputs.binutils }}
+          NEWLIB_BRANCH=${{ github.event.inputs.newlib }}
+          GLIBC_BRANCH=${{ github.event.inputs.glibc }}
+          UCLIBC_BRANCH=${{ github.event.inputs.uclibc }}
+
+          for TOOL in "LINUX" "GCC" "BINUTILS" "NEWLIB" "GLIBC" "UCLIBC";
+          do
+              REPO_URL=${TOOL}_REPO_URL
+              BRANCH=${TOOL}_BRANCH
+              BRANCH_DEFAULT=${TOOL}_BRANCH_DEFAULT
+              COMMIT=${TOOL}_COMMIT
+
+              printf "Using ${TOOL} from:\n\trepo: ${!REPO_URL}\n"
+              if [[ -n ${!BRANCH} ]]; then
+                  # dispatch branch name
+                  COMMIT="$(git ls-remote ${!REPO_URL} ${!BRANCH}  | awk '{print $1}')"
+                  printf "\tbranch: ${!BRANCH}\n\tcommit: $COMMIT\n"
+              elif [[ -z ${!COMMIT} ]]; then
+                  # default branch name
+                  COMMIT="$(git ls-remote ${!REPO_URL} ${!BRANCH_DEFAULT}  | awk '{print $1}')"
+                  printf "\tbranch: ${!BRANCH_DEFAULT}\n\tcommit: $COMMIT\n"
+              else
+                  # commit id
+                  COMMIT=${!COMMIT}
+                  printf "\tcommit: $COMMIT\n"
+              fi
+              echo "${TOOL}_COMMIT=$COMMIT" >> $GITHUB_ENV
+          done
+
+      - name: Update configuration files
+        run: |
+
+          get_tools_version_string() {
+              local target_toolchain="$1"
+              local tools_version
+              if [[ $target_toolchain == *arc64*elf* ]]; then
+                  tools_version='ARCv3 ISA elf64 toolchain'
+              elif [[ $target_toolchain == *elf32* ]]; then
+                  tools_version='ARCompact/ARCv2 ISA elf32 toolchain'
+              elif [[ $target_toolchain == *linux* || $target_toolchain == *native* ]]; then
+                  if [[ $target_toolchain == *arc64* ]]; then
+                      tools_version='ARCv3 ISA GNU/Linux glibc toolchain'
+                  else
+                      if [[ $target_toolchain == *arc700* ]]; then
+                          if [[ $target_toolchain == *-uclibc ]]; then
+                              tools_version='ARCompact ISA Linux uClibc toolchain'
+                          elif [[ $target_toolchain == *-gnu ]]; then
+                              tools_version='ARC700 GNU/Linux glibc toolchain'
+                          fi
+                      elif [[ $target_toolchain == *archs* || $target_toolchain == *arc32* ]]; then
+                          if [[ $target_toolchain == *-uclibc ]]; then
+                              tools_version='ARCv2 ISA Linux uClibc toolchain'
+                          elif [[ $target_toolchain == *-gnu ]]; then
+                              tools_version='ARC HS GNU/Linux glibc toolchain'
+                          fi
+                      fi
+                  fi
+              elif [[ $target_toolchain == *mingw* ]]; then
+                  tools_version='x86_64 MinGW-W64 toolchain'
+              fi
+              tools_version+=" ${{ steps.build_suffix.outputs.build_suffix }}"
+              echo "$tools_version"
+          }
+
+          for d in $(find ./samples -type d | grep snps-) ; do
+            echo "Patching config for sample: $d"
+
+            sed -i -e "/CT_LINUX_DEVEL_URL=/s/\".*\"/\"${LINUX_REPO_URL//\//\\/}.git\"/g"         $d/crosstool.config
+            sed -i -e "/CT_GCC_DEVEL_URL=/s/\".*\"/\"${GCC_REPO_URL//\//\\/}.git\"/g"             $d/crosstool.config
+            sed -i -e "/CT_BINUTILS_DEVEL_URL=/s/\".*\"/\"${BINUTILS_REPO_URL//\//\\/}.git\"/g"   $d/crosstool.config
+            sed -i -e "/CT_GDB_DEVEL_URL=/s/\".*\"/\"${BINUTILS_REPO_URL//\//\\/}.git\"/g"        $d/crosstool.config
+            sed -i -e "/CT_NEWLIB_DEVEL_URL=/s/\".*\"/\"${NEWLIB_REPO_URL//\//\\/}.git\"/g"       $d/crosstool.config
+            sed -i -e "/CT_NEWLIB_NANO_DEVEL_URL=/s/\".*\"/\"${NEWLIB_REPO_URL//\//\\/}.git\"/g"  $d/crosstool.config
+            sed -i -e "/CT_GLIBC_DEVEL_URL=/s/\".*\"/\"${GLIBC_REPO_URL//\//\\/}.git\"/g"         $d/crosstool.config
+            sed -i -e "/CT_UCLIBC_NG_DEVEL_URL=/s/\".*\"/\"${UCLIBC_REPO_URL//\//\\/}.git\"/g"    $d/crosstool.config
+
+            sed -i -e "/CT_LINUX_DEVEL_REVISION=/s/\".*\"/\"${LINUX_COMMIT}\"/"                   $d/crosstool.config
+            sed -i -e "/CT_GCC_DEVEL_REVISION=/s/\".*\"/\"${GCC_COMMIT}\"/"                       $d/crosstool.config
+            sed -i -e "/CT_BINUTILS_DEVEL_REVISION=/s/\".*\"/\"${BINUTILS_COMMIT}\"/"             $d/crosstool.config
+            sed -i -e "/CT_GDB_DEVEL_REVISION=/s/\".*\"/\"${BINUTILS_COMMIT}\"/"                  $d/crosstool.config
+            sed -i -e "/CT_NEWLIB_DEVEL_REVISION=/s/\".*\"/\"${NEWLIB_COMMIT}\"/"                 $d/crosstool.config
+            sed -i -e "/CT_NEWLIB_NANO_DEVEL_REVISION=/s/\".*\"/\"${NEWLIB_COMMIT}\"/"            $d/crosstool.config
+            sed -i -e "/CT_GLIBC_DEVEL_REVISION=/s/\".*\"/\"${GLIBC_COMMIT}\"/"                   $d/crosstool.config
+            sed -i -e "/CT_UCLIBC_NG_DEVEL_REVISION=/s/\".*\"/\"${UCLIBC_COMMIT}\"/"              $d/crosstool.config
+
+            grep 'REVISION\|DEVEL_URL' $d/crosstool.config || true
+
+            printf "\nCT_TOOLCHAIN_PKGVERSION=\"$(get_tools_version_string $(basename $d))\"\n" >> $d/crosstool.config
+            printf "# CT_SHOW_CT_VERSION is not set\n"                                          >> $d/crosstool.config
+
+            echo "-----"
+          done
+      - name: "build ct-ng"
+        run: |
+          sudo apt-get install -y gperf help2man libtool-bin
+          ./bootstrap
+          ./configure --prefix=$PWD/.local/
+          make
+          make install
+          tar -cf ct-ng.tar .local/
+      - name: "upload ct-ng"
+        uses: actions/upload-artifact@v2
+        with:
+          name: crosstool.${{ matrix.host }}
+          path: ct-ng.tar
+
+  tarballs:
+    needs: [ crosstool ]
+    runs-on: ubuntu-18.04
+    steps:
+      - name: "download ct-ng"
+        uses: actions/download-artifact@v2
+        with:
+          name: crosstool.ubuntu-18.04
+      - name: "extract ct-ng"
+        run: |
+          tar -xf ct-ng.tar
+      - name: "prereq Linux"
+        if: ${{ runner.os == 'Linux' }}
+        run: |
+          sudo apt-get install -y gperf help2man libtool-bin
+          echo "$GITHUB_WORKSPACE/.local/bin" >> $GITHUB_PATH
+      - name: "ct-ng source"
+        run: |
+          mkdir -p src
+          # we loop through limited number of configurations to get all required source packages
+          # tarball created will be reused to build toolchains for all ARC configurations
+          for sample in snps-arc-archs-linux-gnu snps-arc-archs-linux-uclibc\
+                snps-arc-multilib-elf32 ; do \
+                ct-ng $sample; \
+                sed -i -e '/CT_LOG_PROGRESS_BAR/s/y$/n/' .config; \
+                sed -i -e '/CT_LOCAL_TARBALLS_DIR/s/HOME/CT_TOP_DIR/' .config; \
+                sed -i -e '/CT_PREFIX_DIR/s/HOME/CT_TOP_DIR/' .config; \
+                ct-ng olddefconfig; \
+                ct-ng source; \
+          done
+          tar -cvf src.tar src
+      - name: "upload sources"
+        uses: actions/upload-artifact@v2
+        with:
+          name: src.tar
+          path: src.tar
+          retention-days: 2
+
+  toolchains:
+    needs: [ tarballs, crosstool ]
+    uses: ./.github/workflows/build-toolchains-arc.yml
+    with:
+      samples: >-
+        [
+         "snps-arc-arc700-linux-uclibc",
+         "snps-arc-archs-linux-uclibc",
+         "snps-arc-archs-linux-gnu",
+         "snps-arc32-snps-linux-uclibc",
+         "snps-arc32-snps-linux-gnu",
+         "snps-arc64-snps-linux-gnu",
+         "snps-arc-multilib-elf32",
+         "snps-arceb-multilib-elf32",
+         "snps-arc64-unknown-elf",
+         "snps-x86_64-w64-mingw32"
+        ]
+      release-suffix: ${{ needs.crosstool.outputs.build_suffix }}
+
+  canadian-cross:
+    needs: [ toolchains, crosstool ]
+    uses: ./.github/workflows/build-toolchains-arc.yml
+    with:
+      samples: >-
+        [
+          "snps-arc-elf32-win",
+          "snps-arceb-elf32-win",
+          "snps-arc64-elf-win",
+          "snps-arc-archs-native-gnu",
+          "snps-arc32-snps-native-gnu",
+          "snps-arc64-snps-native-gnu"
+        ]
+      release-suffix: ${{ needs.crosstool.outputs.build_suffix }}
+      canadian-cross: true
