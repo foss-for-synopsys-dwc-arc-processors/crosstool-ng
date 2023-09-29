@@ -1,0 +1,44 @@
+CT_CONFIG_VERSION="4"
+CT_EXPERIMENTAL=y
+CT_DEBUG_CT=y
+CT_DEBUG_CT_SAVE_STEPS=y
+CT_PREFIX_DIR="arceb-multilib-elf32"
+# CT_LOG_PROGRESS_BAR is not set
+CT_ARCH_ARC=y
+CT_MULTILIB=y
+CT_ARCH_BE=y
+CT_TARGET_CFLAGS="-g -O2 -ffunction-sections -fdata-sections"
+# CT_SHOW_CT_VERSION is not set
+CT_TOOLCHAIN_PKGVERSION="ARCompact/ARCv2 elf32 toolchain - build 1425"
+CT_TARGET_VENDOR="snps"
+CT_TARGET_ALIAS="arceb-elf32"
+CT_BINUTILS_SRC_DEVEL=y
+CT_BINUTILS_DEVEL_URL="https://github.com/foss-for-synopsys-dwc-arc-processors/binutils-gdb.git"
+CT_BINUTILS_DEVEL_REVISION="acce4bace7476ecfc9a90da363e8df48717b4d8b"
+CT_NEWLIB_SRC_DEVEL=y
+CT_NEWLIB_DEVEL_URL="https://github.com/foss-for-synopsys-dwc-arc-processors/newlib.git"
+CT_NEWLIB_DEVEL_REVISION="4b4b991141d9278f77d3c23ab3ab5deee42fc17c"
+CT_LIBC_NEWLIB_IO_LL=y
+CT_LIBC_NEWLIB_IO_FLOAT=y
+CT_LIBC_NEWLIB_GLOBAL_ATEXIT=y
+# CT_LIBC_NEWLIB_ENABLE_TARGET_OPTSPACE is not set
+CT_GCC_SRC_DEVEL=y
+CT_GCC_DEVEL_URL="https://github.com/foss-for-synopsys-dwc-arc-processors/gcc.git"
+CT_GCC_DEVEL_REVISION="4305c12c1252b1764293e482ca125355ce61e1b0"
+# CT_CC_GCC_CONFIG_TLS is not set
+# CT_CC_GCC_USE_GRAPHITE is not set
+# CT_CC_GCC_ENABLE_TARGET_OPTSPACE is not set
+CT_CC_LANG_CXX=y
+CT_DEBUG_GDB=y
+CT_GDB_SRC_DEVEL=y
+CT_GDB_DEVEL_URL="https://github.com/foss-for-synopsys-dwc-arc-processors/binutils-gdb.git"
+CT_GDB_DEVEL_REVISION="acce4bace7476ecfc9a90da363e8df48717b4d8b"
+# CT_GDB_CROSS_PYTHON is not set
+CT_COMP_LIBS_NEWLIB_NANO=y
+CT_NEWLIB_NANO_SRC_DEVEL=y
+CT_NEWLIB_NANO_DEVEL_URL="https://github.com/foss-for-synopsys-dwc-arc-processors/newlib.git"
+CT_NEWLIB_NANO_DEVEL_REVISION="4b4b991141d9278f77d3c23ab3ab5deee42fc17c"
+CT_LIBC_NEWLIB_NANO_IO_FLOAT=y
+# CT_LIBC_NEWLIB_NANO_FVWRITE_IN_STREAMIO is not set
+# CT_LIBC_NEWLIB_NANO_ATEXIT_DYNAMIC_ALLOC is not set
+# CT_LIBC_NEWLIB_NANO_MULTITHREAD is not set
