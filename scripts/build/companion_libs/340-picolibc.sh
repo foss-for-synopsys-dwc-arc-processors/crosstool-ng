@@ -30,9 +30,7 @@ REGISTER_FINI:newlib-register-fini
 NANO_MALLOC:newlib-nano-malloc
 ATEXIT_DYNAMIC_ALLOC:newlib-atexit-dynamic-alloc
 GLOBAL_ATEXIT:newlib-global-atexit
-LITE_EXIT:lite-exit
-MULTITHREAD:newlib-multithread
-RETARGETABLE_LOCKING:newlib-retargetable-locking
+SINGLE_THREAD:single-thread
     "
 
     for ynarg in $yn_args; do

@@ -57,28 +57,12 @@ config LIBC_PICOLIBC_GLOBAL_ATEXIT
         Enable atexit data structure as global variable, instead
         of being thread-local.
 
-config LIBC_PICOLIBC_LITE_EXIT
+config LIBC_PICOLIBC_SINGLE_THREAD
     bool
-    prompt "Enable lite exit"
-    default y
+    prompt "Disable support for multiple threads"
+    default n
     help
-        Enable lite exit, a size-reduced implementation of exit that doesn't
-        invoke clean-up functions such as _fini or global destructors.
-
-config LIBC_PICOLIBC_MULTITHREAD
-    bool
-    prompt "Enable support for multiple threads"
-    default y
-    help
-        Enable support for multiple threads.
-
-config LIBC_PICOLIBC_RETARGETABLE_LOCKING
-    bool
-    prompt "Enable retargetable locking"
-    default y
-    help
-        Enable retargetable locking to allow the operating system to override
-        the dummy lock functions defined within picolibc.
+        Disable support for multiple threads.
 
 config LIBC_PICOLIBC_EXTRA_SECTIONS
     bool
