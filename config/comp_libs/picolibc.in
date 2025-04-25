@@ -27,6 +27,15 @@ config LIBC_PICOLIBC_GCC_LIBSTDCXX
       the picolibc companion library. This version is linked when
       "--specs=picolibcpp.specs" is specified.
 
+config LIBC_PICOLIBC_ENABLE_TARGET_OPTSPACE
+    bool
+    prompt "Optimize libstdc++ for size"
+    default y
+    depends on LIBC_PICOLIBC_GCC_LIBSTDCXX
+    help
+      Pass --enable-target-optspace to GCC's configure. This will
+      compile libstdc++ with -Os.
+
 comment "Configuration for picolibc can be found under"
 comment "* -> C-library"
 comment "*   -> picolibc"
