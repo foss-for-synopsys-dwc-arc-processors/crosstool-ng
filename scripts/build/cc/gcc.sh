@@ -679,6 +679,7 @@ do_gcc_core_backend() {
         --with-local-prefix="${CT_SYSROOT_DIR}"        \
         "${extra_config[@]}"                           \
         --enable-languages="${lang_list}"              \
+	--with-multilib-list=reduced		       \
         "${extra_user_config[@]}"
 
     gcc_core_build_libcpp=all-build-libcpp
@@ -1344,6 +1345,7 @@ do_gcc_backend() {
         "${extra_config[@]}"                           \
         --with-local-prefix="${CT_SYSROOT_DIR}"        \
         --enable-long-long                             \
+	--with-multilib-list=reduced                   \
         "${CT_CC_GCC_EXTRA_CONFIG_ARRAY[@]}"
 
     if [ "${CT_CANADIAN}" = "y" ]; then
