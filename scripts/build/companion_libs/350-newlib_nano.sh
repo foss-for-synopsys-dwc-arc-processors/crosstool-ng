@@ -242,6 +242,10 @@ EOF
 -L%:getenv(GCC_EXEC_PREFIX ../../newlib-nano/${CT_TARGET}/lib/%M) -L%:getenv(GCC_EXEC_PREFIX ../../newlib-nano/${CT_TARGET}/lib) %(newlib_nano_link)
 
 EOF
+        # Replace all -lc_nano by -lc to prevent issues with .specs files
+        # which rely on "c_nano" names.
+        find "${CT_PREFIX_DIR}/newlib-nano/${CT_TARGET}/lib" -type f -name '*.specs' -print0 | xargs -0 sed -i 's/-lc_nano/-lc/g'
+        find "${CT_PREFIX_DIR}/${CT_TARGET}/lib" -type f -name '*.specs' -print0 | xargs -0 sed -i 's/-lc_nano/-lc/g'
     fi
 
     CT_Popd
