@@ -133,7 +133,7 @@ do_ncurses_backend() {
         esac
     done
 
-    ncurses_opts+=("--disable-widec")
+    ncurses_opts+=("--enable-widec")
 
     if [ "${CT_NCURSES_NEW_ABI}" != "y" ]; then
         ncurses_opts+=("--with-abi-version=5")
