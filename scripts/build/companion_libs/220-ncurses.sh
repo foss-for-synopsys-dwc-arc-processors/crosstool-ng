@@ -59,10 +59,21 @@ do_ncurses_for_host() {
         opts+=( "--with-fallbacks=${CT_NCURSES_HOST_FALLBACKS}" )
     fi
     opts+=( "${CT_NCURSES_HOST_CONFIG_ARGS[@]}" )
+
+    local widec=n
+    if [ "${CT_TOOLCHAIN_TYPE}" = "cross" ] && [ "${CT_ARCH_ARC}" = "y" ]; then
+        case "${CT_HOST}" in
+            *-*-linux*)
+                widec=y
+                ;;
+        esac
+    fi
+
     do_ncurses_backend host="${CT_HOST}" \
                        prefix="${CT_HOST_COMPLIBS_DIR}" \
                        cflags="${CT_CFLAGS_FOR_HOST}" \
                        ldflags="${CT_LDFLAGS_FOR_HOST}" \
+                       widec="${widec}" \
                        "${opts[@]}"
     CT_Popd
     CT_EndStep
@@ -111,6 +122,7 @@ fi
 #   cflags        : cflags to use             : string    : (empty)
 #   ldflags       : ldflags to use            : string    : (empty)
 #   shared        : build shared lib          : bool      : n
+#   widec         : build wide-char (ncursesw): bool      : n
 #   --*           : passed to configure       : n/a       : n/a
 do_ncurses_backend() {
     local -a ncurses_opts
@@ -119,6 +131,7 @@ do_ncurses_backend() {
     local cflags
     local ldflags
     local shared
+    local widec
     local arg
     local install_target=install
 
@@ -133,7 +146,11 @@ do_ncurses_backend() {
         esac
     done
 
-    ncurses_opts+=("--enable-widec")
+    if [ "${widec}" = "y" ]; then
+        ncurses_opts+=("--enable-widec")
+    else
+        ncurses_opts+=("--disable-widec")
+    fi
 
     if [ "${CT_NCURSES_NEW_ABI}" != "y" ]; then
         ncurses_opts+=("--with-abi-version=5")
